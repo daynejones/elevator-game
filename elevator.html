@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>My Sample Project</title>
+    <link href="style/main.css" rel="stylesheet" type="text/css">
+    <script data-main="scripts/main" src="bower_components/requirejs/require.js"></script>
+  </head>
+  <body>
+    <h1>My Sample Project</h1>
+    <div class="container">
+      <ul id="floors"></ul>
+    </div>
+  </body>
+  <script id="mainTemplate" type="text/template">
+  </script>
+  <script id="elevatorTemplate" type="text/template">
+    <% for (var i=5; i > 0; i--) { %>
+      <li data-floor="<%= i %>">
+        <div class="box"></div>
+      </li>
+    <% } %>
+  </script>
+  <script id="floorTemplate" type="text/template">
+    <li data-floor="<%= number %>">
+      <div class="box"></div>
+      <input class="call" type="button" value="Call">
+    </li>
+  </script>
+</html>
