@@ -1,23 +1,35 @@
 define(["backbone", "underscore"], function(Backbone, _) {
   var elevator = {};
+  var settings = {
+    numElevators: 2,
+    numFloors: 10
+  };
 
-  mainView = Backbone.View.extend({
+  var mainView = Backbone.View.extend({
     el: ".container",
     elevatorViews: [],
+    elevatorCollection: '',
     floorViews: [],
+    floorCollection: '',
     initialize: function() {
-      elevatorModel = new ElevatorModel;
-      elevatorView = new ElevatorView({model: elevatorModel});
+      this.elevatorCollection = new ElevatorCollection();
+      this.floorCollection = new FloorCollection();
 
-      elevatorView.on("arrived", this.updateWaitingStatus, this);
-
-      for (var i=5; i > 0; i--) {
+      for (var i=settings.numFloors; i > 0; i--) {
         var model = new FloorModel({number: i});
+        this.floorCollection.add(model);
         var view = new FloorView({model: model});
         this.floorViews.push(view);
       }
 
-      this.elevatorViews.push(elevatorView);
+      for (var i=0; i < settings.numElevators; i++) {
+        var currentFloor = Math.floor((Math.random() * settings.numFloors + 1));
+        var model = new ElevatorModel({currentFloor: currentFloor});
+        this.elevatorCollection.add(model);
+        var view = new ElevatorView({model: model});
+        this.elevatorViews.push(view);
+      }
+
       this.template = _.template($("#mainTemplate").html());
     },
     render: function() {
@@ -34,36 +46,70 @@ define(["backbone", "underscore"], function(Backbone, _) {
     renderFloors: function() {
       var listItems = [];
       var _this = this;
-      _.each(this.floorViews, function(floorView){
+      this.floorViews.forEach(function(floorView){
         listItems.push(floorView.render().$el);
         floorView.model.on("change:waiting", _this.dispatchElevator, _this);
       });
-      this.$("#floors").append(listItems);
+      this.$(".floors").append(listItems);
     },
     dispatchElevator: function(floor) {
-      if (floor.get("waiting") == false){
+      if (floor.get("waiting") === false) {
         return;
-      } else {
-        this.sendClosestAvailableElevator(floor.get("number"));
       }
+      this.sendClosestAvailableElevator(floor);
     },
-    sendClosestAvailableElevator: function(floorNumber) {
-      var elevatorNumber = 0;
-      this.elevatorViews[elevatorNumber].sendTo(floorNumber);
+    sendClosestAvailableElevator: function(floor) {
+      var closestAvailableElevator;
+      var numFloorsAway;
+      var availableElevators;
+      var floorNumber = floor.get("number");
+
+      availableElevators = this.elevatorViews.filter(function(elevatorView) {
+        var direction = elevatorView.model.get("direction");
+        //if (!direction || direction === floor.get("direction"))
+      });
+
+      this.elevatorViews.forEach(function(elevatorView) {
+        var currentFloor;
+        var floorsToGo;
+
+        currentFloor = elevatorView.model.get("currentFloor");
+        floorsToGo = Math.abs(floorNumber - currentFloor);
+
+        // if we find a closer elevator
+        if (!closestAvailableElevator || floorsToGo < numFloorsAway) {
+          closestAvailableElevator = elevatorView;
+          numFloorsAway = floorsToGo;
+        }
+      });
+
+      closestAvailableElevator.once("arrived", this.updateFloorWaitingStatus, this);
+      closestAvailableElevator.sendTo(floorNumber);
     },
-    updateWaitingStatus: function(elevatorView) {
-      this.floorViews[elevatorView.model.get("currentFloor")].model.set("waiting", false);
+    updateFloorWaitingStatus: function(elevatorView) {
+      this.floorCollection
+          .findWhere({"number": elevatorView.model.get("currentFloor")})
+          .set({"waiting": false, "direction": undefined});
+      elevatorView.model.set("direction", undefined);
     }
   });
 
   ElevatorView = Backbone.View.extend({
-    id: "elevator",
+    className: "elevator",
     tagName: "ul",
+    floorSelectHTML: (function(){
+      return _.template($("#floorSelectTemplate").html())({numFloors: settings.numFloors});
+    }()),
     initialize: function() {
       this.template = _.template($("#elevatorTemplate").html());
+      this.model.on("change:direction", this.render, this);
+    },
+    events: {
+      "change .floorNumber": "floorChosen"
     },
     render: function() {
-      this.$el.html(this.template);
+      this.$el.html(this.template(_.extend({numFloors: settings.numFloors}, this.model.toJSON())));
+      this.$(".controls").append(this.floorSelectHTML);
       this.setCurrent();
       this.model.on("change:currentFloor", this.setCurrent, this);
       return this;
@@ -74,39 +120,98 @@ define(["backbone", "underscore"], function(Backbone, _) {
       this.$("[data-floor='" + currentFloor + "']").addClass("active");
     },
     sendTo: function(floorNumber, callback) {
-      this.model.set("currentFloor", floorNumber);
-      this.trigger("arrived", this);
+      var currentFloor = this.model.get("currentFloor");
+      var floorsToGo = floorNumber - currentFloor;
+      var _this = this;
+
+      if (floorsToGo < 0) {
+        this.model.set("direction", "down");
+      } else {
+        this.model.set("direction", "up");
+      }
+
+      var moveFloors = function moveFloors() {
+        if (floorsToGo !== 0) {
+          setTimeout(function(){
+            if (floorsToGo < 0) {
+              _this.model.set("currentFloor", currentFloor - 1);
+              currentFloor -= 1;
+              floorsToGo += 1;
+            } else {
+              _this.model.set("currentFloor", currentFloor + 1);
+              currentFloor += 1;
+              floorsToGo -= 1;
+            }
+            moveFloors();
+          }, 500);
+        } else {
+          _this.trigger("arrived", _this);
+        }
+      }
+    moveFloors();
+    },
+    floorChosen: function(e) {
+      this.sendTo(e.target.value);
     }
   });
 
   FloorView = Backbone.View.extend({
     initialize: function() {
       this.template = _.template($("#floorTemplate").html());
+      this.model.on("change:waiting", this.setActiveArrow, this);
     },
     events: {
-      "click .call": "callElevator"
+      "click .call": "callElevator",
     },
     render: function() {
-      this.$el.html(this.template(this.model.toJSON()));
+      this.$el.html(this.template(_.extend({numFloors: settings.numFloors}, this.model.toJSON())));
       return this;
     },
-    callElevator: function() {
-      this.model.set("waiting", true);
+    callElevator: function(e) {
+      this.model.set({"waiting": true, "direction": $(e.target).data('direction')});
+      this.$el.addClass("waiting");
+
+      var _this = this;
+      this.model.once("change:waiting", function() {
+        _this.$el.removeClass("waiting");
+      });
+    },
+    setActiveArrow: function(floor) {
+      if (floor.get("waiting")) {
+        this.$(".controls span[data-direction='" + floor.get("direction") + "']")
+            .addClass("active");
+      }
     }
   });
 
   ElevatorModel = Backbone.Model.extend({
     defaults: {
       currentFloor: 1,
-      direction: ''
+
+      // direction can be 'up', 'down', or undefined
+      direction: 'snakes'
     }
+  });
+
+  ElevatorCollection = Backbone.Collection.extend({
+    model: ElevatorModel
   });
 
   FloorModel = Backbone.Model.extend({
     defaults: {
       number: '',
-      waiting: false
+      
+      // waiting can be true or false
+      waiting: false,
+
+      // direction can be 'up', 'down', or undefined and should only
+      // be defined when waiting is set to true
+      direction: false
     }
+  });
+
+  FloorCollection = Backbone.Collection.extend({
+    model: FloorModel
   });
 
   elevator.mainView = new mainView();

@@ -1,29 +1,47 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>My Sample Project</title>
+    <title>Going Up?</title>
     <link href="style/main.css" rel="stylesheet" type="text/css">
     <script data-main="scripts/main" src="bower_components/requirejs/require.js"></script>
   </head>
   <body>
-    <h1>My Sample Project</h1>
+    <h1>Going Up?</h1>
     <div class="container">
-      <ul id="floors"></ul>
+      <ul class="floors"></ul>
     </div>
   </body>
   <script id="mainTemplate" type="text/template">
   </script>
   <script id="elevatorTemplate" type="text/template">
-    <% for (var i=5; i > 0; i--) { %>
+    <% for (var i=numFloors; i > 0; i--) { %>
       <li data-floor="<%= i %>">
-        <div class="box"></div>
+        <div class="box"><%= direction %></div>
+        <div class="controls">
+        </div>
       </li>
     <% } %>
   </script>
   <script id="floorTemplate" type="text/template">
     <li data-floor="<%= number %>">
+      <h5>Floor <%= number %></h5>
       <div class="box"></div>
-      <input class="call" type="button" value="Call">
+      <div class="controls">
+        <% if (number !== numFloors) { %>
+          <span class="call" data-direction="up">^</span>
+        <% } %>
+        <% if (number !== 1) { %>
+          <span class="call" data-direction="down">v</span>
+        <% } %>
+      </div>
     </li>
+  </script>
+  <script id="floorSelectTemplate" type="text/template">
+    <select class="floorNumber" type="button" value="Call">
+      <option value="select">Select Floor</option>
+      <% for (var i=numFloors; i > 0; i--) { %>
+        <option value="<%= i %>">Floor: <%= i %></option>
+      <% } %>
+    </select>
   </script>
 </html>
