@@ -1,7 +1,7 @@
 define(["backbone", "underscore"], function(Backbone, _) {
   var elevator = {};
   var settings = {
-    numElevators: 2,
+    numElevators: 1,
     numFloors: 10
   };
 
@@ -62,6 +62,7 @@ define(["backbone", "underscore"], function(Backbone, _) {
       var closestAvailableElevator;
       var numFloorsAway;
       var availableElevators;
+      var floorStack;
       var floorNumber = floor.get("number");
 
       availableElevators = this.elevatorViews.filter(function(elevatorView) {
@@ -83,14 +84,16 @@ define(["backbone", "underscore"], function(Backbone, _) {
         }
       });
 
-      closestAvailableElevator.once("arrived", this.updateFloorWaitingStatus, this);
-      closestAvailableElevator.sendTo(floorNumber);
+      closestAvailableElevator.on("arrived", this.updateFloorWaitingStatus, this);
+      floorStack = closestAvailableElevator.model.get("floorStack").concat();
+      floorStack.push(floorNumber);
+      floorStack.sort();
+      closestAvailableElevator.model.set("floorStack", floorStack);
     },
     updateFloorWaitingStatus: function(elevatorView) {
       this.floorCollection
           .findWhere({"number": elevatorView.model.get("currentFloor")})
           .set({"waiting": false, "direction": undefined});
-      elevatorView.model.set("direction", undefined);
     }
   });
 
@@ -103,6 +106,7 @@ define(["backbone", "underscore"], function(Backbone, _) {
     initialize: function() {
       this.template = _.template($("#elevatorTemplate").html());
       this.model.on("change:direction", this.render, this);
+      this.model.on("change:floorStack", this.manageFloorStack, this);
     },
     events: {
       "change .floorNumber": "floorChosen"
@@ -119,11 +123,23 @@ define(["backbone", "underscore"], function(Backbone, _) {
       this.$("li").removeClass("active");
       this.$("[data-floor='" + currentFloor + "']").addClass("active");
     },
-    sendTo: function(floorNumber, callback) {
+    manageFloorStack: function() {
+      // elevator is already moving
+      if (this.model.get("direction")) {
+        return;
+      } else {
+        this.startElevator();
+      }
+    },
+    startElevator: function() {
+      var destination = this.model.get("floorStack")[0];
+      var floorStack = this.model.get("floorStack");
       var currentFloor = this.model.get("currentFloor");
-      var floorsToGo = floorNumber - currentFloor;
       var _this = this;
 
+      console.log("current floor stack: " + this.model.get("floorStack"));
+
+      var floorsToGo = destination - currentFloor;
       if (floorsToGo < 0) {
         this.model.set("direction", "down");
       } else {
@@ -131,7 +147,15 @@ define(["backbone", "underscore"], function(Backbone, _) {
       }
 
       var moveFloors = function moveFloors() {
+        // if we are at a floor someone called
+        if (floorsToGo && _this.model.get("floorStack").indexOf(currentFloor) > -1) {
+          _this.trigger("arrived", _this);
+          _this.model.set("floorStack", _this.model.get("floorStack").shift());
+        }
+
         if (floorsToGo !== 0) {
+          console.log("floorsToGo: " + floorsToGo);
+          console.log("destination: " + destination);
           setTimeout(function(){
             if (floorsToGo < 0) {
               _this.model.set("currentFloor", currentFloor - 1);
@@ -143,15 +167,17 @@ define(["backbone", "underscore"], function(Backbone, _) {
               floorsToGo -= 1;
             }
             moveFloors();
-          }, 500);
+          }, 1000);
         } else {
           _this.trigger("arrived", _this);
+          _this.model.set("floorStack", []);
+          _this.model.set("direction", undefined);
         }
       }
-    moveFloors();
+      moveFloors();
     },
     floorChosen: function(e) {
-      this.sendTo(e.target.value);
+      this.startElevator(e.target.value);
     }
   });
 
@@ -189,7 +215,11 @@ define(["backbone", "underscore"], function(Backbone, _) {
       currentFloor: 1,
 
       // direction can be 'up', 'down', or undefined
-      direction: 'snakes'
+      direction: undefined,
+
+      // array to keep track of which floors and what order the elevator
+      // should stop at. The 0th element is the next one to be visited
+      floorStack: []
     }
   });
 
