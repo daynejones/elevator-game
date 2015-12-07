@@ -90,6 +90,7 @@ define(["backbone", "underscore"], function(Backbone, _) {
       floorStack.sort();
       closestAvailableElevator.model.set("floorStack", floorStack);
     },
+
     updateFloorWaitingStatus: function(elevatorView) {
       this.floorCollection
           .findWhere({"number": elevatorView.model.get("currentFloor")})
@@ -131,11 +132,15 @@ define(["backbone", "underscore"], function(Backbone, _) {
         this.startElevator();
       }
     },
-    startElevator: function() {
-      var destination = this.model.get("floorStack")[0];
+    startElevator: function(floorNumber) {
+      var destination;
       var floorStack = this.model.get("floorStack");
       var currentFloor = this.model.get("currentFloor");
       var _this = this;
+
+      floorStack.push(floorNumber);
+      floorStack.sort();
+      destination = this.model.get("floorStack")[0];
 
       console.log("current floor stack: " + this.model.get("floorStack"));
 
@@ -177,6 +182,7 @@ define(["backbone", "underscore"], function(Backbone, _) {
       moveFloors();
     },
     floorChosen: function(e) {
+      console.log(e.target.value);
       this.startElevator(e.target.value);
     }
   });

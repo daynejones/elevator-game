@@ -38,6 +38,10 @@ li {
   display: block;
 }
 
+.floors {
+  margin-left: 150px;
+}
+
 .floors li {
   display: block;
 }
