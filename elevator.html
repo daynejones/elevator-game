@@ -16,7 +16,7 @@
   <script id="elevatorTemplate" type="text/template">
     <% for (var i=numFloors; i > 0; i--) { %>
       <li data-floor="<%= i %>">
-        <div class="box"><%= direction %></div>
+        <div class="box"><%= direction ? 'going ' + direction : 'stopped' %>, door is <%= doorStatus %></div>
         <div class="controls">
         </div>
       </li>

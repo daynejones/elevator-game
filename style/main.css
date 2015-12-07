@@ -51,6 +51,10 @@ li {
   left: -100%;
 }
 
+.floorNumber {
+  margin-top: 35px;
+}
+
 .controls {
   position: absolute;
   left: 0;

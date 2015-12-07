@@ -1,7 +1,7 @@
 define(["backbone", "underscore"], function(Backbone, _) {
   var elevator = {};
   var settings = {
-    numElevators: 1,
+    numElevators: 2,
     numFloors: 10
   };
 
@@ -107,6 +107,7 @@ define(["backbone", "underscore"], function(Backbone, _) {
     initialize: function() {
       this.template = _.template($("#elevatorTemplate").html());
       this.model.on("change:direction", this.render, this);
+      this.model.on("change:doorStatus", this.render, this);
       this.model.on("change:floorStack", this.manageFloorStack, this);
     },
     events: {
@@ -150,6 +151,7 @@ define(["backbone", "underscore"], function(Backbone, _) {
       } else {
         this.model.set("direction", "up");
       }
+      this.model.set("doorStatus", "closed");
 
       var moveFloors = function moveFloors() {
         // if we are at a floor someone called
@@ -177,6 +179,7 @@ define(["backbone", "underscore"], function(Backbone, _) {
           _this.trigger("arrived", _this);
           _this.model.set("floorStack", []);
           _this.model.set("direction", undefined);
+          _this.model.set("doorStatus", "open");
         }
       }
       moveFloors();
@@ -222,6 +225,9 @@ define(["backbone", "underscore"], function(Backbone, _) {
 
       // direction can be 'up', 'down', or undefined
       direction: undefined,
+
+      // doorStatus can be 'open' or 'closed'
+      doorStatus: 'open',
 
       // array to keep track of which floors and what order the elevator
       // should stop at. The 0th element is the next one to be visited
